@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ani schedule icon">
+  <rect width="512" height="512" rx="112" fill="#080a0f"/>
+  <path d="M120 154h272v226H120z" fill="#111827" stroke="#27354c" stroke-width="18"/>
+  <path d="M160 206h192M160 260h192M160 314h138" stroke="#f6c550" stroke-width="24" stroke-linecap="round"/>
+  <path d="M340 308l32 28 44-58" fill="none" stroke="#7dd3fc" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

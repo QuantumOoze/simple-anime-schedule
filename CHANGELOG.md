@@ -1,5 +1,12 @@
 # Changelog
 
+## Stable v1 Local Anime Schedule App
+
+- Added compact local data management for export, import, selective clears, and full reset.
+- Fixed Watching list hydration so persisted entries restore across reloads and same-origin restarts.
+- Updated validation to preserve complete Watching items while still ignoring malformed or legacy raw-key entries.
+- Confirmed the production build succeeds for the stable local v1 checkpoint.
+
 ## v1 - Stable Anime Schedule Tracker
 
 - Built the initial mobile-first anime schedule tracker.

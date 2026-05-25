@@ -12,7 +12,7 @@ export type AiringItem = {
 export type FollowedAnime = {
   id: string;
   provider: "anilist";
-  mediaId: number;
+  mediaId: number | string;
   displayTitle?: string;
 };
 
@@ -27,7 +27,7 @@ export type CompletedShowItem = WatchingItem & {
 export type ReleaseReminder = {
   id: string;
   provider: "anilist";
-  mediaId: number;
+  mediaId: number | string;
   episode: number;
   displayTitle: string;
   airingAt: number;
@@ -37,7 +37,7 @@ export type ReleaseReminder = {
 };
 
 export type UserTrackingState = {
-  followedAnimeIds?: number[];
+  followedAnimeIds?: Array<number | string>;
   following: Record<string, FollowedAnime>;
   watchingList: Record<string, WatchingItem>;
   completedShows: Record<string, CompletedShowItem>;

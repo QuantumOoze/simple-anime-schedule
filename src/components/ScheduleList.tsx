@@ -8,8 +8,8 @@ type ScheduleListProps = {
   items: AiringItem[];
   isLoading: boolean;
   error: string | null;
-  followedAnimeIds: number[];
-  completedAnimeIds: number[];
+  followedAnimeIds: Array<number | string>;
+  completedAnimeIds: Array<number | string>;
   reminderIds: Set<string>;
   watchedEpisodes: Record<string, boolean>;
   onToggleFollowed: (item: AiringItem) => void;

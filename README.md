@@ -59,7 +59,9 @@ If `npm` is not available on this machine, the workspace-local Node runtime can 
 - Current release underline on today only, with red connected underline when the current release has an active reminder.
 - Custom tooltip for truncated schedule and side-list titles.
 - Return-to-today shortcut by clicking the app title.
+- Compact settings/data panel for exporting, importing, clearing, and resetting local app data.
 - Defensive localStorage normalization for malformed or legacy state.
+- Persistent Watching list hydration across reloads, same-origin browser restarts, and dev server restarts.
 
 ## Known Limitations
 
@@ -67,6 +69,7 @@ If `npm` is not available on this machine, the workspace-local Node runtime can 
 - AniList provides broadcast-style airing data only; RAW/SUB/DUB-specific data is not available from the current source.
 - Browser notifications only work while the app is open; no push notification backend exists in v1.
 - Reminder permission and notification behavior may vary by browser and mobile platform.
+- Imported data must match the app's local state shape; malformed entries are ignored.
 - Completed archive management is planned but not implemented.
 - Schedule accuracy depends on AniList data availability and rate limits.
 

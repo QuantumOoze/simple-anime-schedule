@@ -3,6 +3,7 @@ import { AirTypeFilter } from "./components/AirTypeFilter";
 import { DaySelector } from "./components/DaySelector";
 import { FollowedList } from "./components/FollowedList";
 import { ScheduleList } from "./components/ScheduleList";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { useAiringSchedule } from "./hooks/useAiringSchedule";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import type {
@@ -33,6 +34,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [visibleStartDate, setVisibleStartDate] = useState(() => new Date());
   const [selectedWatchingId, setSelectedWatchingId] = useState<string | null>(null);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
   const [trackingState, setTrackingState] = useLocalStorage<UserTrackingState>(
     TRACKING_STORAGE_KEY,
     DEFAULT_TRACKING_STATE,
@@ -234,6 +236,70 @@ function App() {
     }
   }
 
+  function handleExportData() {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: safeTrackingState,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `simple-anime-schedule-data-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setImportStatus("Exported app data.");
+  }
+
+  async function handleImportData(file: File) {
+    try {
+      const rawText = await file.text();
+      const parsed = safeParseJson(rawText);
+
+      if (!parsed || typeof parsed !== "object") {
+        setImportStatus("Import failed: JSON must contain an object.");
+        return;
+      }
+
+      const candidate = "data" in parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
+      const nextState = withTrackingDefaults(candidate as UserTrackingState, items);
+      setTrackingState(nextState);
+      setSelectedWatchingId(null);
+      setImportStatus("Imported app data.");
+    } catch {
+      setImportStatus("Import failed: invalid JSON file.");
+    }
+  }
+
+  function handleClearWatchedEpisodes() {
+    setTrackingState((current) => ({ ...withTrackingDefaults(current, items), watchedEpisodes: {} }));
+  }
+
+  function handleClearReminders() {
+    setTrackingState((current) => ({ ...withTrackingDefaults(current, items), releaseReminders: {} }));
+  }
+
+  function handleClearWatchingList() {
+    setTrackingState((current) => ({ ...withTrackingDefaults(current, items), watchingList: {} }));
+    setSelectedWatchingId(null);
+  }
+
+  function handleClearCompletedShows() {
+    setTrackingState((current) => ({ ...withTrackingDefaults(current, items), completedShows: {} }));
+  }
+
+  function handleResetAllData() {
+    if (!window.confirm("Reset all app data? This clears watched episodes, watching list, completed shows, and reminders.")) {
+      return;
+    }
+
+    setTrackingState(DEFAULT_TRACKING_STATE);
+    setSelectedWatchingId(null);
+    window.localStorage.removeItem(NOTIFICATION_PERMISSION_PROMPT_KEY);
+    setImportStatus("Reset all app data.");
+  }
+
   return (
     <main className="min-h-screen bg-night-950 text-slate-100">
       <div className="mx-auto flex min-h-screen w-full justify-center px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))]">
@@ -267,6 +333,16 @@ function App() {
               <div className="mt-3">
                 <AirTypeFilter selectedAirType={airType} onChange={handleAirTypeChange} />
               </div>
+              <SettingsPanel
+                importStatus={importStatus}
+                onClearCompletedShows={handleClearCompletedShows}
+                onClearReminders={handleClearReminders}
+                onClearWatchedEpisodes={handleClearWatchedEpisodes}
+                onClearWatchingList={handleClearWatchingList}
+                onExportData={handleExportData}
+                onImportData={handleImportData}
+                onResetAllData={handleResetAllData}
+              />
             </section>
 
             <section className="relative z-0 mt-4 flex-1">
@@ -305,10 +381,13 @@ function App() {
 function withTrackingDefaults(value: UserTrackingState, loadedItems: AiringItem[] = []): UserTrackingState {
   const safeValue = value && typeof value === "object" ? value : DEFAULT_TRACKING_STATE;
   const legacyFollowedIds = Array.isArray(safeValue.followedAnimeIds)
-    ? safeValue.followedAnimeIds.filter((id) => typeof id === "number")
+    ? safeValue.followedAnimeIds.filter(isValidMediaId)
     : [];
-  const loadedTitles = new Map(loadedItems.map((item) => [item.animeId, item.title]));
+  const loadedTitles = new Map<number | string, string>(loadedItems.map((item) => [item.animeId, item.title]));
   const hasStoredWatchingList = Boolean(safeValue.watchingList && typeof safeValue.watchingList === "object");
+  const rawWatchingList = hasStoredWatchingList ? (safeValue.watchingList as Record<string, unknown>) : {};
+  const hasLegacyWatchingListEntries =
+    hasStoredWatchingList && Object.values(rawWatchingList).some((rawItem) => rawItem === true);
   const following = normalizeFollowing(safeValue.following, loadedTitles);
   const watchingList = normalizeWatchingList(safeValue.watchingList, loadedTitles);
   const completedShows = normalizeCompletedShows(safeValue.completedShows, loadedTitles);
@@ -342,6 +421,26 @@ function withTrackingDefaults(value: UserTrackingState, loadedItems: AiringItem[
     }
   }
 
+  if (hasLegacyWatchingListEntries) {
+    Object.entries(rawWatchingList).forEach(([key, rawItem]) => {
+      if (rawItem !== true) {
+        return;
+      }
+
+      const animeId = Number(key.replace("anilist:", ""));
+      const displayTitle = loadedTitles.get(animeId);
+
+      if (Number.isFinite(animeId) && displayTitle && !watchingList[getFollowKey(animeId)]) {
+        watchingList[getFollowKey(animeId)] = {
+          id: getFollowKey(animeId),
+          provider: "anilist",
+          mediaId: animeId,
+          displayTitle,
+        };
+      }
+    });
+  }
+
   return {
     followedAnimeIds: Object.values(following).map((item) => item.mediaId),
     following,
@@ -369,7 +468,7 @@ function isAirType(value: unknown): value is AirType {
   return value === "RAW" || value === "SUB" || value === "DUB" || value === "ALL";
 }
 
-function normalizeFollowing(value: unknown, loadedTitles: Map<number, string>): Record<string, FollowedAnime> {
+function normalizeFollowing(value: unknown, loadedTitles: Map<number | string, string>): Record<string, FollowedAnime> {
   if (!value || typeof value !== "object") {
     return {};
   }
@@ -402,7 +501,7 @@ function normalizeFollowing(value: unknown, loadedTitles: Map<number, string>): 
 
       const item = rawItem as Partial<FollowedAnime>;
 
-      if (item.provider !== "anilist" || typeof item.mediaId !== "number") {
+      if (item.provider !== "anilist" || !isValidMediaId(item.mediaId)) {
         return [];
       }
 
@@ -426,7 +525,7 @@ function normalizeFollowing(value: unknown, loadedTitles: Map<number, string>): 
   );
 }
 
-function normalizeWatchingList(value: unknown, loadedTitles: Map<number, string>): Record<string, WatchingItem> {
+function normalizeWatchingList(value: unknown, loadedTitles: Map<number | string, string>): Record<string, WatchingItem> {
   if (!value || typeof value !== "object") {
     return {};
   }
@@ -439,12 +538,12 @@ function normalizeWatchingList(value: unknown, loadedTitles: Map<number, string>
 
       const item = rawItem as Partial<WatchingItem>;
 
-      if (item.provider !== "anilist" || typeof item.mediaId !== "number") {
+      if (item.provider !== "anilist" || !isValidMediaId(item.mediaId)) {
         return [];
       }
 
       const storedTitle =
-        typeof item.displayTitle === "string" && !isPlaceholderTitle(item.displayTitle) ? item.displayTitle : undefined;
+        typeof item.displayTitle === "string" && isRenderableTitle(item.displayTitle) ? item.displayTitle.trim() : undefined;
       const displayTitle = storedTitle ?? loadedTitles.get(item.mediaId);
 
       if (!displayTitle) {
@@ -457,7 +556,7 @@ function normalizeWatchingList(value: unknown, loadedTitles: Map<number, string>
   );
 }
 
-function normalizeCompletedShows(value: unknown, loadedTitles: Map<number, string>): Record<string, CompletedShowItem> {
+function normalizeCompletedShows(value: unknown, loadedTitles: Map<number | string, string>): Record<string, CompletedShowItem> {
   if (!value || typeof value !== "object") {
     return {};
   }
@@ -470,12 +569,12 @@ function normalizeCompletedShows(value: unknown, loadedTitles: Map<number, strin
 
       const item = rawItem as Partial<CompletedShowItem>;
 
-      if (item.provider !== "anilist" || typeof item.mediaId !== "number") {
+      if (item.provider !== "anilist" || !isValidMediaId(item.mediaId)) {
         return [];
       }
 
       const storedTitle =
-        typeof item.displayTitle === "string" && !isPlaceholderTitle(item.displayTitle) ? item.displayTitle : undefined;
+        typeof item.displayTitle === "string" && isRenderableTitle(item.displayTitle) ? item.displayTitle.trim() : undefined;
       const displayTitle = storedTitle ?? loadedTitles.get(item.mediaId);
 
       if (!displayTitle) {
@@ -504,9 +603,9 @@ function normalizeReleaseReminders(value: unknown): Record<string, ReleaseRemind
 
       if (
         item.provider !== "anilist" ||
-        typeof item.mediaId !== "number" ||
+        !isValidMediaId(item.mediaId) ||
         typeof item.episode !== "number" ||
-        typeof item.displayTitle !== "string" ||
+        !isRenderableTitle(item.displayTitle) ||
         typeof item.airingAt !== "number"
       ) {
         return [];
@@ -521,7 +620,7 @@ function normalizeReleaseReminders(value: unknown): Record<string, ReleaseRemind
             provider: "anilist",
             mediaId: item.mediaId,
             episode: item.episode,
-            displayTitle: item.displayTitle,
+            displayTitle: item.displayTitle.trim(),
             airingAt: item.airingAt,
             localTime: typeof item.localTime === "string" ? item.localTime : formatScheduleTime(item.airingAt),
             createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
@@ -539,12 +638,20 @@ function getSortedWatchingItems(watchingList: Record<string, WatchingItem>) {
     .sort((left, right) => left.displayTitle.localeCompare(right.displayTitle, undefined, { sensitivity: "base" }));
 }
 
-function getFollowKey(animeId: number) {
+function getFollowKey(animeId: number | string) {
   return `anilist:${animeId}`;
 }
 
 function isPlaceholderTitle(title: string) {
   return /^AniList #\d+$/i.test(title.trim());
+}
+
+function isRenderableTitle(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0 && !isPlaceholderTitle(value);
+}
+
+function isValidMediaId(value: unknown): value is number | string {
+  return (typeof value === "number" && Number.isFinite(value)) || (typeof value === "string" && value.trim().length > 0);
 }
 
 function getReminderKey(item: AiringItem) {
@@ -556,6 +663,14 @@ function shouldRequestNotificationPermission() {
     return window.localStorage.getItem(NOTIFICATION_PERMISSION_PROMPT_KEY) !== "true";
   } catch {
     return true;
+  }
+}
+
+function safeParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
   }
 }
 

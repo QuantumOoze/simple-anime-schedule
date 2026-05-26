@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AirTypeFilter } from "./components/AirTypeFilter";
 import { DaySelector } from "./components/DaySelector";
 import { FollowedList } from "./components/FollowedList";
+import { HelpPanel } from "./components/HelpPanel";
 import { ScheduleList } from "./components/ScheduleList";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { useAiringSchedule } from "./hooks/useAiringSchedule";
@@ -30,11 +31,14 @@ const DEFAULT_TRACKING_STATE: UserTrackingState = {
   airType: "ALL",
 };
 
+type HeaderPanel = "help" | "settings" | null;
+
 function App() {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [visibleStartDate, setVisibleStartDate] = useState(() => new Date());
   const [selectedWatchingId, setSelectedWatchingId] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [openHeaderPanel, setOpenHeaderPanel] = useState<HeaderPanel>(null);
   const [trackingState, setTrackingState] = useLocalStorage<UserTrackingState>(
     TRACKING_STORAGE_KEY,
     DEFAULT_TRACKING_STATE,
@@ -325,16 +329,24 @@ function App() {
                 <p className="min-w-0 flex-1 text-[0.68rem] font-medium leading-snug text-slate-500">
                   Schedule source: AniList airing data - times shown in your local timezone.
                 </p>
-                <SettingsPanel
-                  importStatus={importStatus}
-                  onClearCompletedShows={handleClearCompletedShows}
-                  onClearReminders={handleClearReminders}
-                  onClearWatchedEpisodes={handleClearWatchedEpisodes}
-                  onClearWatchingList={handleClearWatchingList}
-                  onExportData={handleExportData}
-                  onImportData={handleImportData}
-                  onResetAllData={handleResetAllData}
-                />
+                <div className="flex shrink-0 items-center gap-1">
+                  <HelpPanel
+                    isOpen={openHeaderPanel === "help"}
+                    onOpenChange={(isOpen) => setOpenHeaderPanel(isOpen ? "help" : null)}
+                  />
+                  <SettingsPanel
+                    isOpen={openHeaderPanel === "settings"}
+                    importStatus={importStatus}
+                    onOpenChange={(isOpen) => setOpenHeaderPanel(isOpen ? "settings" : null)}
+                    onClearCompletedShows={handleClearCompletedShows}
+                    onClearReminders={handleClearReminders}
+                    onClearWatchedEpisodes={handleClearWatchedEpisodes}
+                    onClearWatchingList={handleClearWatchingList}
+                    onExportData={handleExportData}
+                    onImportData={handleImportData}
+                    onResetAllData={handleResetAllData}
+                  />
+                </div>
               </div>
               <DaySelector
                 selectedDate={selectedDate}

@@ -1,8 +1,10 @@
 import { Download, RotateCcw, Settings, Upload } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 
 type SettingsPanelProps = {
+  isOpen: boolean;
   importStatus: string | null;
+  onOpenChange: (isOpen: boolean) => void;
   onClearCompletedShows: () => void;
   onClearReminders: () => void;
   onClearWatchedEpisodes: () => void;
@@ -13,7 +15,9 @@ type SettingsPanelProps = {
 };
 
 export function SettingsPanel({
+  isOpen,
   importStatus,
+  onOpenChange,
   onClearCompletedShows,
   onClearReminders,
   onClearWatchedEpisodes,
@@ -22,13 +26,33 @@ export function SettingsPanel({
   onImportData,
   onResetAllData,
 }: SettingsPanelProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (containerRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      onOpenChange(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [isOpen, onOpenChange]);
 
   return (
-    <div className="relative text-[0.68rem]">
+    <div ref={containerRef} className="relative text-[0.68rem]">
       <button
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => onOpenChange(!isOpen)}
         className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-white/[0.035] text-slate-500 transition hover:bg-white/[0.07] hover:text-slate-200 focus-visible:bg-white/[0.07] focus-visible:text-slate-200 focus-visible:outline-none"
         aria-label="Open data settings"
         aria-expanded={isOpen}

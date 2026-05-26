@@ -321,9 +321,21 @@ function App() {
             </header>
 
             <section className="sticky top-0 z-40 -mx-3 border-b border-white/[0.06] bg-night-950 px-3 pb-3 pt-1 shadow-[0_14px_20px_rgba(7,9,13,0.85)]">
-              <p className="mb-2 text-[0.68rem] font-medium leading-snug text-slate-500">
-                Schedule source: AniList airing data - times shown in your local timezone.
-              </p>
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <p className="min-w-0 flex-1 text-[0.68rem] font-medium leading-snug text-slate-500">
+                  Schedule source: AniList airing data - times shown in your local timezone.
+                </p>
+                <SettingsPanel
+                  importStatus={importStatus}
+                  onClearCompletedShows={handleClearCompletedShows}
+                  onClearReminders={handleClearReminders}
+                  onClearWatchedEpisodes={handleClearWatchedEpisodes}
+                  onClearWatchingList={handleClearWatchingList}
+                  onExportData={handleExportData}
+                  onImportData={handleImportData}
+                  onResetAllData={handleResetAllData}
+                />
+              </div>
               <DaySelector
                 selectedDate={selectedDate}
                 visibleStartDate={visibleStartDate}
@@ -333,16 +345,6 @@ function App() {
               <div className="mt-3">
                 <AirTypeFilter selectedAirType={airType} onChange={handleAirTypeChange} />
               </div>
-              <SettingsPanel
-                importStatus={importStatus}
-                onClearCompletedShows={handleClearCompletedShows}
-                onClearReminders={handleClearReminders}
-                onClearWatchedEpisodes={handleClearWatchedEpisodes}
-                onClearWatchingList={handleClearWatchingList}
-                onExportData={handleExportData}
-                onImportData={handleImportData}
-                onResetAllData={handleResetAllData}
-              />
             </section>
 
             <section className="relative z-0 mt-4 flex-1">

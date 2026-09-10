@@ -325,7 +325,7 @@ function App() {
                     />
                   </button>
                 </div>
-                <p className="pb-1 text-right text-xs font-semibold text-slate-500">{selectedDayHeading}</p>
+                <p className="text-right text-xs font-semibold text-slate-500">{selectedDayHeading}</p>
               </div>
             </header>
 

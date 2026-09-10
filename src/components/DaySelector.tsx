@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { addDays, getVisibleDays } from "../utils/date";
 
 type DaySelectorProps = {
@@ -15,6 +16,46 @@ export function DaySelector({
   onVisibleStartDateChange,
 }: DaySelectorProps) {
   const days = getVisibleDays(visibleStartDate, selectedDate);
+  const dragStartXRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    dragStartXRef.current = event.clientX;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const dragStartX = dragStartXRef.current;
+    dragStartXRef.current = null;
+
+    if (dragStartX === null) {
+      return;
+    }
+
+    const distance = event.clientX - dragStartX;
+    const absoluteDistance = Math.abs(distance);
+
+    if (absoluteDistance < 28) {
+      return;
+    }
+
+    const daysToMove = Math.max(1, Math.round(absoluteDistance / 100));
+    onVisibleStartDateChange(addDays(visibleStartDate, distance < 0 ? daysToMove : -daysToMove));
+    suppressClickRef.current = true;
+  }
+
+  function handleDayClick(date: Date) {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+
+    onSelectDate(date);
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -27,13 +68,21 @@ export function DaySelector({
         <ChevronLeft size={20} strokeWidth={2.4} />
       </button>
 
-      <div className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto scroll-smooth py-1" aria-label="Select day">
+      <div
+        className="no-scrollbar flex min-w-0 flex-1 cursor-grab touch-pan-y gap-2 overflow-x-auto scroll-smooth py-1 active:cursor-grabbing"
+        aria-label="Select day"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => {
+          dragStartXRef.current = null;
+        }}
+      >
         {days.map((day) => {
           return (
             <button
               key={day.date.toDateString()}
               type="button"
-              onClick={() => onSelectDate(day.date)}
+              onClick={() => handleDayClick(day.date)}
               className={`h-10 shrink-0 rounded-md px-3 text-xs font-extrabold tracking-[0.05em] transition ${
                 day.isSelected
                   ? "bg-slate-100 text-night-950"

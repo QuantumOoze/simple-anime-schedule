@@ -17,6 +17,7 @@ export function DaySelector({
 }: DaySelectorProps) {
   const days = getVisibleDays(visibleStartDate, selectedDate);
   const dragStartXRef = useRef<number | null>(null);
+  const dragStartYRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -25,26 +26,36 @@ export function DaySelector({
     }
 
     dragStartXRef.current = event.clientX;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStartYRef.current = event.clientY;
+
+    // Keep touch gestures attached to the strip, but let desktop mouse clicks
+    // keep their normal button event flow.
+    if (event.pointerType !== "mouse") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     const dragStartX = dragStartXRef.current;
+    const dragStartY = dragStartYRef.current;
     dragStartXRef.current = null;
+    dragStartYRef.current = null;
 
-    if (dragStartX === null) {
+    if (dragStartX === null || dragStartY === null) {
       return;
     }
 
-    const distance = event.clientX - dragStartX;
-    const absoluteDistance = Math.abs(distance);
+    const distanceX = event.clientX - dragStartX;
+    const distanceY = event.clientY - dragStartY;
+    const absoluteDistanceX = Math.abs(distanceX);
+    const absoluteDistanceY = Math.abs(distanceY);
 
-    if (absoluteDistance < 28) {
+    if (absoluteDistanceX < 28 || absoluteDistanceX <= absoluteDistanceY) {
       return;
     }
 
-    const daysToMove = Math.max(1, Math.round(absoluteDistance / 100));
-    onVisibleStartDateChange(addDays(visibleStartDate, distance < 0 ? daysToMove : -daysToMove));
+    const daysToMove = Math.max(1, Math.round(absoluteDistanceX / 100));
+    onVisibleStartDateChange(addDays(visibleStartDate, distanceX < 0 ? daysToMove : -daysToMove));
     suppressClickRef.current = true;
   }
 
@@ -75,6 +86,7 @@ export function DaySelector({
         onPointerUp={handlePointerUp}
         onPointerCancel={() => {
           dragStartXRef.current = null;
+          dragStartYRef.current = null;
         }}
       >
         {days.map((day) => {

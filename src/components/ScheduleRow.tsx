@@ -50,7 +50,7 @@ export function ScheduleRow({
     : "";
 
   return (
-    <li className="relative z-0 grid min-h-14 grid-cols-[3.75rem_minmax(0,1fr)_4rem] items-center gap-2 border-b border-white/[0.06] px-1 py-3 last:border-b-0">
+    <li className="relative z-0 grid min-h-14 grid-cols-[3.75rem_minmax(0,1fr)_2rem_4rem] items-center gap-2 border-b border-white/[0.06] px-1 py-3 last:border-b-0">
       {showRedConnectedUnderline ? (
         <span className="pointer-events-none absolute bottom-[0.78rem] left-1 right-[4.5rem] z-0 border-b border-red-300/70" />
       ) : null}
@@ -76,7 +76,9 @@ export function ScheduleRow({
       </button>
 
       {isCompleted ? (
-        <div className={`relative z-10 flex min-w-0 items-center gap-1.5 rounded px-1.5 py-0.5 ${completedBoxClass}`}>
+        <div
+          className={`relative z-10 col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)_2rem] items-center gap-1.5 rounded px-1.5 py-0.5 ${completedBoxClass}`}
+        >
           <TruncatedTitle
             text={item.title}
             className={`min-w-0 flex-1 text-[0.95rem] font-semibold leading-snug ${completedTextClass}`}
@@ -94,12 +96,15 @@ export function ScheduleRow({
           </button>
         </div>
       ) : (
-        <div className="relative z-10 flex min-w-0 items-center gap-2">
-          <TruncatedTitle text={item.title} className={`min-w-0 text-[0.95rem] font-semibold leading-snug ${titleClass}`} />
+        <>
+          <TruncatedTitle
+            text={item.title}
+            className={`relative z-10 min-w-0 text-[0.95rem] font-semibold leading-snug ${titleClass}`}
+          />
           <button
             type="button"
             onClick={() => onToggleWatched(item.animeId, item.episode)}
-            className={`grid h-8 w-8 shrink-0 place-items-center rounded-md transition hover:bg-white/[0.06] ${
+            className={`relative z-10 grid h-8 w-8 shrink-0 place-items-center justify-self-center rounded-md transition hover:bg-white/[0.06] ${
               isWatched ? "text-signal-cyan opacity-95" : "text-slate-300 opacity-30"
             }`}
             aria-label={`${isWatched ? "Mark unwatched" : "Mark watched"}: ${item.title} episode ${item.episode}`}
@@ -107,13 +112,13 @@ export function ScheduleRow({
           >
             <Eye size={17} strokeWidth={2.2} />
           </button>
-        </div>
+        </>
       )}
 
       <button
         type="button"
         onClick={() => onToggleFollowed(item)}
-        className={`justify-self-end rounded px-2 py-2 text-sm font-extrabold tabular-nums transition hover:bg-white/[0.06] ${
+        className={`justify-self-start rounded px-2 py-2 text-sm font-extrabold tabular-nums transition hover:bg-white/[0.06] ${
           isFollowed ? (isAired ? "text-signal-gold/65" : "text-signal-gold") : secondaryClass
         }`}
         aria-label={`${isFollowed ? "Unfollow" : "Follow"} ${item.title}`}

@@ -326,7 +326,7 @@ function App() {
                     />
                   </button>
                 </div>
-                <div className="flex w-[5.5rem] shrink-0 flex-col items-end text-right">
+                <div className="flex w-28 shrink-0 flex-col items-end text-right">
                   <div className="mb-1 flex w-full flex-col items-end">
                     <div className="flex items-center justify-end gap-1 text-[0.58rem] font-semibold tracking-[0.12em] text-slate-400 sm:text-[0.62rem]">
                       <span>{selectedSeason.label}</span>
@@ -341,7 +341,9 @@ function App() {
                       シーズン '{selectedSeason.year}
                     </span>
                   </div>
-                  <p className="w-full text-right text-xs font-semibold text-slate-500">{selectedDayHeading}</p>
+                  <p className="w-full whitespace-nowrap text-right text-xs font-semibold text-slate-500">
+                    {selectedDayHeading}
+                  </p>
                 </div>
               </div>
             </header>

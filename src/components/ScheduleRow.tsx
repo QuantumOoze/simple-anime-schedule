@@ -118,7 +118,7 @@ export function ScheduleRow({
       <button
         type="button"
         onClick={() => onToggleFollowed(item)}
-        className={`justify-self-start rounded px-2 py-2 text-sm font-extrabold tabular-nums transition hover:bg-white/[0.06] ${
+        className={`-ml-0.5 justify-self-start rounded px-2 py-2 text-sm font-extrabold tabular-nums transition hover:bg-white/[0.06] ${
           isFollowed ? (isAired ? "text-signal-gold/65" : "text-signal-gold") : secondaryClass
         }`}
         aria-label={`${isFollowed ? "Unfollow" : "Follow"} ${item.title}`}

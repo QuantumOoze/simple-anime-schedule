@@ -311,13 +311,18 @@ function App() {
           <div className="relative mx-auto flex w-full max-w-[360px] shrink-0 flex-col lg:mx-0 lg:w-[360px]">
             <header className="relative z-40 mb-4 bg-night-950 pb-1">
               <div className="flex items-end justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <button
                     type="button"
                     onClick={goToToday}
-                    className="cursor-pointer text-left text-2xl font-black tracking-normal text-white transition hover:text-signal-gold/95 focus-visible:text-signal-gold/95 focus-visible:outline-none"
+                    className="block cursor-pointer text-left transition-opacity hover:opacity-95 focus-visible:opacity-95 focus-visible:outline-none"
+                    aria-label="Simple Anime Schedule - return to today"
                   >
-                    Simple Anime Schedule
+                    <img
+                      src="/simple-anime-schedule-logo.png"
+                      alt="Simple Anime Schedule"
+                      className="h-auto w-full max-w-[13.5rem] object-contain sm:max-w-[16rem] lg:max-w-[18rem]"
+                    />
                   </button>
                 </div>
                 <p className="pb-1 text-right text-xs font-semibold text-slate-500">{selectedDayHeading}</p>

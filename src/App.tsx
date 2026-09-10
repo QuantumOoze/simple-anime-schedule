@@ -16,7 +16,7 @@ import type {
   UserTrackingState,
   WatchingItem,
 } from "./types";
-import { formatScheduleTime } from "./utils/date";
+import { formatScheduleTime, getAnimeSeason } from "./utils/date";
 import { episodeKey } from "./utils/tracking";
 
 const TRACKING_STORAGE_KEY = "anikai-schedule-tracking";
@@ -101,6 +101,7 @@ function App() {
       }),
     [selectedDate],
   );
+  const selectedSeason = useMemo(() => getAnimeSeason(selectedDate), [selectedDate]);
 
   function handleAirTypeChange(nextAirType: AirType) {
     setTrackingState((current) => ({ ...withTrackingDefaults(current), airType: nextAirType }));
@@ -325,7 +326,23 @@ function App() {
                     />
                   </button>
                 </div>
-                <p className="text-right text-xs font-semibold text-slate-500">{selectedDayHeading}</p>
+                <div className="flex w-[5.5rem] shrink-0 flex-col items-end text-right">
+                  <div className="mb-1 flex w-full flex-col items-end">
+                    <div className="flex items-center justify-end gap-1 text-[0.58rem] font-semibold tracking-[0.12em] text-slate-400 sm:text-[0.62rem]">
+                      <span>{selectedSeason.label}</span>
+                      <img
+                        src={selectedSeason.iconSrc}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-3 w-auto object-contain opacity-80 sm:h-3.5"
+                      />
+                    </div>
+                    <span className="mt-0.5 text-[0.5rem] font-medium tracking-[0.08em] text-slate-600 sm:text-[0.55rem]">
+                      シーズン '{selectedSeason.year}
+                    </span>
+                  </div>
+                  <p className="w-full text-right text-xs font-semibold text-slate-500">{selectedDayHeading}</p>
+                </div>
               </div>
             </header>
 

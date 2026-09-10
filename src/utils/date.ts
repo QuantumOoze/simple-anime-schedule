@@ -52,3 +52,28 @@ export function formatScheduleTime(airingAt: number) {
     minute: "2-digit",
   });
 }
+
+export type AnimeSeason = {
+  label: "WINTER" | "SPRING" | "SUMMER" | "FALL";
+  iconSrc: string;
+  year: string;
+};
+
+const SEASON_DETAILS = {
+  WINTER: { iconSrc: "/season-winter.png" },
+  SPRING: { iconSrc: "/season-spring.png" },
+  SUMMER: { iconSrc: "/season-summer.png" },
+  FALL: { iconSrc: "/season-fall.png" },
+} as const;
+
+export function getAnimeSeason(date: Date): AnimeSeason {
+  const month = date.getMonth();
+  const label =
+    month <= 2 ? "WINTER" : month <= 5 ? "SPRING" : month <= 8 ? "SUMMER" : "FALL";
+
+  return {
+    label,
+    iconSrc: SEASON_DETAILS[label].iconSrc,
+    year: String(date.getFullYear()).slice(-2).padStart(2, "0"),
+  };
+}

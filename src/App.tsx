@@ -309,7 +309,7 @@ function App() {
       <div className="mx-auto flex min-h-screen w-full justify-center px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <div className="flex w-full max-w-[360px] flex-col gap-4 lg:w-fit lg:max-w-none lg:flex-row lg:items-start">
           <div className="relative mx-auto flex w-full max-w-[360px] shrink-0 flex-col lg:mx-0 lg:w-[360px]">
-            <header className="relative z-40 mb-4 bg-night-950 pb-1">
+            <header className="relative z-40 mb-2 bg-night-950 pb-1">
               <div className="flex items-end justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <button

@@ -337,11 +337,11 @@ function App() {
                         className="h-3 w-auto object-contain opacity-80 sm:h-3.5"
                       />
                     </div>
-                    <span className="mt-0.5 text-[0.5rem] font-medium tracking-[0.08em] text-slate-600 sm:text-[0.55rem]">
+                    <span className="mt-0.5 text-[0.56rem] font-medium tracking-[0.08em] text-slate-500 sm:text-[0.6rem]">
                       シーズン '{selectedSeason.year}
                     </span>
                   </div>
-                  <p className="w-full whitespace-nowrap text-right text-xs font-semibold text-slate-500">
+                  <p className="w-full whitespace-nowrap text-right text-[0.8rem] font-semibold text-slate-400">
                     {selectedDayHeading}
                   </p>
                 </div>

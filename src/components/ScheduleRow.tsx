@@ -50,9 +50,9 @@ export function ScheduleRow({
     : "";
 
   return (
-    <li className="relative z-0 grid min-h-14 grid-cols-[3.75rem_minmax(0,1fr)_2rem_4rem] items-center gap-2 border-b border-white/[0.06] px-1 py-3 last:border-b-0">
+    <li className="relative z-0 grid min-h-14 grid-cols-[3.75rem_minmax(0,1fr)_2rem_3.5rem] items-center gap-x-1 gap-y-2 border-b border-white/[0.06] px-1 py-3 last:border-b-0">
       {showRedConnectedUnderline ? (
-        <span className="pointer-events-none absolute bottom-[0.78rem] left-1 right-[4.5rem] z-0 border-b border-red-300/70" />
+        <span className="pointer-events-none absolute bottom-[0.78rem] left-1 right-[3.75rem] z-0 border-b border-red-300/70" />
       ) : null}
       <button
         type="button"

@@ -3,7 +3,7 @@ import { fetchAiringSchedulesForMediaIds } from "../api/anilist";
 import type { UserTrackingState, WatchingItem } from "../types";
 import { getWatchCheckScanWindow, mergeDiscoveredWatchChecks } from "../utils/watchCheckDiscovery";
 
-const WATCH_CHECK_DISCOVERY_DEBOUNCE_MS = 750;
+const WATCH_CHECK_DISCOVERY_SETTLE_MS = 350;
 
 type UseWatchCheckDiscoveryOptions = {
   watchingList: Record<string, WatchingItem>;
@@ -20,6 +20,11 @@ export function useWatchCheckDiscovery({
 }: UseWatchCheckDiscoveryOptions) {
   const completedMembershipScan = useRef<string | null>(null);
   const discoveryGeneration = useRef(0);
+  const activeDiscovery = useRef<{
+    controller: AbortController;
+    generation: number;
+  } | null>(null);
+  const lastDiscoveryStartedAt = useRef(0);
   const watchingItems = useMemo(() => Object.values(watchingList), [watchingList]);
   const watchingSignature = useMemo(
     () =>
@@ -51,8 +56,6 @@ export function useWatchCheckDiscovery({
       return;
     }
 
-    completedMembershipScan.current = watchingSignature;
-    const controller = new AbortController();
     const mediaIds = watchingSignature.split(",").map(Number);
     const nowUnix = Math.floor(Date.now() / 1000);
     const newMediaIds = mediaIds.filter((mediaId) => initializedMediaIds[String(mediaId)] !== true);
@@ -60,7 +63,23 @@ export function useWatchCheckDiscovery({
     const initialScanWindow = getWatchCheckScanWindow(nowUnix);
     const incrementalScanWindow = getWatchCheckScanWindow(nowUnix, lastSuccessfulScanAt);
 
-    async function discover() {
+    let controller: AbortController | null = null;
+    let settleTimeout: number | null = null;
+
+    const startDiscovery = () => {
+      if (discoveryGeneration.current !== generation) {
+        return;
+      }
+
+      completedMembershipScan.current = watchingSignature;
+      controller = new AbortController();
+      activeDiscovery.current = { controller, generation };
+      lastDiscoveryStartedAt.current = Date.now();
+
+      void discover(controller);
+    };
+
+    async function discover(requestController: AbortController) {
       try {
         const requests = [
           ...(newMediaIds.length > 0
@@ -72,7 +91,7 @@ export function useWatchCheckDiscovery({
                     newMediaIds,
                     initialScanWindow.startUnix,
                     initialScanWindow.endUnix,
-                    controller.signal,
+                    requestController.signal,
                   ),
                 },
               ]
@@ -86,7 +105,7 @@ export function useWatchCheckDiscovery({
                     initializedIds,
                     incrementalScanWindow.startUnix,
                     incrementalScanWindow.endUnix,
-                    controller.signal,
+                    requestController.signal,
                   ),
                 },
               ]
@@ -94,7 +113,10 @@ export function useWatchCheckDiscovery({
         ];
         const results = await Promise.allSettled(requests.map((request) => request.promise));
 
-        if (controller.signal.aborted || discoveryGeneration.current !== generation) {
+        if (requestController.signal.aborted || discoveryGeneration.current !== generation) {
+          if (activeDiscovery.current?.generation === generation) {
+            activeDiscovery.current = null;
+          }
           return;
         }
 
@@ -151,17 +173,31 @@ export function useWatchCheckDiscovery({
         }
       } catch {
         // Discovery is supplemental; preserve the previous timestamp and state so a later scan can retry.
-        completedMembershipScan.current = null;
+        if (discoveryGeneration.current === generation) {
+          completedMembershipScan.current = null;
+        }
+      } finally {
+        if (activeDiscovery.current?.generation === generation) {
+          activeDiscovery.current = null;
+        }
       }
     }
 
-    const debounceTimeout = window.setTimeout(() => {
-      void discover();
-    }, WATCH_CHECK_DISCOVERY_DEBOUNCE_MS);
+    const shouldSettle =
+      activeDiscovery.current !== null ||
+      Date.now() - lastDiscoveryStartedAt.current < WATCH_CHECK_DISCOVERY_SETTLE_MS;
+
+    if (shouldSettle) {
+      settleTimeout = window.setTimeout(startDiscovery, WATCH_CHECK_DISCOVERY_SETTLE_MS);
+    } else {
+      startDiscovery();
+    }
 
     return () => {
-      window.clearTimeout(debounceTimeout);
-      controller.abort();
+      if (settleTimeout !== null) {
+        window.clearTimeout(settleTimeout);
+      }
+      controller?.abort();
     };
   }, [initializedMediaSignature, lastSuccessfulScanAt, setTrackingState, watchingSignature]);
 }

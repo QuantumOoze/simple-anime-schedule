@@ -5,6 +5,7 @@ import { TruncatedTitle } from "./TruncatedTitle";
 
 type FollowedListProps = {
   followedItems: WatchingItem[];
+  snoozedMediaIds: ReadonlySet<string>;
   selectedWatchingId: string | null;
   onSelectWatchingItem: (id: string) => void;
   onClearSelectedWatchingItem: () => void;
@@ -14,6 +15,7 @@ type FollowedListProps = {
 
 export function FollowedList({
   followedItems,
+  snoozedMediaIds,
   selectedWatchingId,
   onSelectWatchingItem,
   onClearSelectedWatchingItem,
@@ -83,21 +85,32 @@ export function FollowedList({
       <ul className="space-y-1">
         {followedItems.map((item) => (
           <li key={item.id} className="flex max-w-full items-center gap-1">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelectWatchingItem(item.id);
-              }}
-              className={`min-w-0 flex-1 truncate text-left font-medium transition focus-visible:outline-none ${
-                selectedWatchingId === item.id
-                  ? "text-xs text-signal-cyan"
-                  : "text-[0.68rem] text-signal-cyan/80 hover:text-signal-cyan"
-              }`}
-              title={item.displayTitle}
-            >
-              <TruncatedTitle text={item.displayTitle} focusable={false} />
-            </button>
+            <span className="flex min-w-0 flex-1 items-center gap-[3px]">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectWatchingItem(item.id);
+                }}
+                className={`min-w-0 max-w-full flex-[0_1_auto] truncate text-left font-medium transition focus-visible:outline-none ${
+                  selectedWatchingId === item.id
+                    ? "text-xs text-signal-cyan"
+                    : "text-[0.68rem] text-signal-cyan/80 hover:text-signal-cyan"
+                }`}
+                title={item.displayTitle}
+              >
+                <TruncatedTitle text={item.displayTitle} focusable={false} />
+              </button>
+              {snoozedMediaIds.has(String(item.mediaId)) ? (
+                <img
+                  src="/snoozed-zzz-cropped.png"
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  className="pointer-events-none h-[15px] w-auto shrink-0 object-contain max-[360px]:h-[14px] max-[340px]:h-[13px]"
+                />
+              ) : null}
+            </span>
             {selectedWatchingId === item.id ? (
               <button
                 type="button"

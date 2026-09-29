@@ -1,3 +1,3 @@
-export function episodeKey(animeId: number, episode: number) {
+export function episodeKey(animeId: number | string, episode: number) {
   return `${animeId}:${episode}`;
 }

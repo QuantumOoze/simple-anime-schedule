@@ -36,6 +36,88 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+@keyframes watch-check-bell-ring {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  18% {
+    transform: rotate(-9deg);
+  }
+
+  36% {
+    transform: rotate(8deg);
+  }
+
+  54% {
+    transform: rotate(-6deg);
+  }
+
+  72% {
+    transform: rotate(4deg);
+  }
+}
+
+.watch-check-bell-ring {
+  animation: watch-check-bell-ring 0.72s ease-in-out 1;
+  transform-origin: 50% 12%;
+}
+
+@keyframes watch-check-bell-idle {
+  0%,
+  100% {
+    transform: rotate(-1.5deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(1.5deg) translateY(-1px);
+  }
+}
+
+.watch-check-bell-idle {
+  animation: watch-check-bell-idle 5s ease-in-out infinite;
+  transform-origin: 50% 60%;
+}
+
+.watch-check-bell-waking-scale {
+  transform: scale(1.1);
+  transform-origin: center;
+}
+
+@keyframes watch-check-badge-float {
+  0%,
+  100% {
+    transform: rotate(-1deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(1deg) translateY(-2px);
+  }
+}
+
+.watch-check-badge-float {
+  animation: watch-check-badge-float 5.6s ease-in-out infinite alternate;
+  transform-origin: 50% 62%;
+}
+
+.watch-check-bell-reflection {
+  background: radial-gradient(
+    ellipse at center,
+    rgb(196 181 253 / 0.38) 0%,
+    rgb(167 139 250 / 0.2) 42%,
+    transparent 78%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-check-bell-ring,
+  .watch-check-bell-idle,
+  .watch-check-badge-float {
+    animation: none;
+  }
+}
+
 .no-scrollbar {
   scrollbar-width: none;
 }

@@ -31,7 +31,7 @@ export function useAiringSchedule(selectedDate: Date, airType: AirType): UseAiri
       setError(null);
 
       try {
-        const nextItems = await fetchAiringScheduleForDay(startUnix, endUnix);
+        const nextItems = await fetchAiringScheduleForDay(startUnix, endUnix, controller.signal);
 
         if (!controller.signal.aborted) {
           // TODO: When AnimeSchedule.net or another source is added, merge or replace

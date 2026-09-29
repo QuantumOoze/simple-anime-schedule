@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AirTypeFilter } from "./components/AirTypeFilter";
 import { DaySelector } from "./components/DaySelector";
 import { FollowedList } from "./components/FollowedList";
 import { HelpPanel } from "./components/HelpPanel";
+import { PendingWatchBadge } from "./components/PendingWatchBadge";
 import { ScheduleList } from "./components/ScheduleList";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { WatchCheckPanel } from "./components/WatchCheckPanel";
 import { useAiringSchedule } from "./hooks/useAiringSchedule";
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { useWatchCheckDiscovery } from "./hooks/useWatchCheckDiscovery";
 import type {
   AiringItem,
   AirType,
@@ -15,9 +18,18 @@ import type {
   ReleaseReminder,
   UserTrackingState,
   WatchingItem,
+  WatchCheck,
 } from "./types";
 import { formatScheduleTime, getAnimeSeason } from "./utils/date";
 import { episodeKey } from "./utils/tracking";
+import {
+  getActionableWatchCheckGroups,
+  removeWatchChecksForMediaId,
+  isWatchCheckActionable,
+  watchCheckEligibilityTime,
+  watchCheckKey,
+} from "./utils/watchChecks";
+import type { ActionableWatchCheckGroup } from "./utils/watchChecks";
 
 const TRACKING_STORAGE_KEY = "anikai-schedule-tracking";
 const NOTIFICATION_PERMISSION_PROMPT_KEY = "anime-schedule-notification-permission-asked";
@@ -27,6 +39,8 @@ const DEFAULT_TRACKING_STATE: UserTrackingState = {
   watchingList: {},
   completedShows: {},
   releaseReminders: {},
+  watchChecks: {},
+  watchCheckInitializedMediaIds: {},
   watchedEpisodes: {},
   airType: "ALL",
 };
@@ -39,6 +53,17 @@ function App() {
   const [selectedWatchingId, setSelectedWatchingId] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [openHeaderPanel, setOpenHeaderPanel] = useState<HeaderPanel>(null);
+  const [watchCheckNow, setWatchCheckNow] = useState(() => Math.floor(Date.now() / 1000));
+  const hadActionableWatchChecks = useRef(false);
+  const [watchCheckBellAnimationKey, setWatchCheckBellAnimationKey] = useState(0);
+  const bellFocusFromPointer = useRef(false);
+  const bellAnchorRef = useRef<HTMLDivElement>(null);
+  const bellButtonRef = useRef<HTMLButtonElement>(null);
+  const [isBellHovered, setIsBellHovered] = useState(false);
+  const [isBellPressed, setIsBellPressed] = useState(false);
+  const [isBellFocused, setIsBellFocused] = useState(false);
+  const [isWatchCheckPanelOpen, setIsWatchCheckPanelOpen] = useState(false);
+  const [isBellRingActive, setIsBellRingActive] = useState(false);
   const [trackingState, setTrackingState] = useLocalStorage<UserTrackingState>(
     TRACKING_STORAGE_KEY,
     DEFAULT_TRACKING_STATE,
@@ -46,9 +71,20 @@ function App() {
   const airType = trackingState.airType ?? "ALL";
   const { items, isLoading, error } = useAiringSchedule(selectedDate, airType);
   const safeTrackingState = useMemo(() => withTrackingDefaults(trackingState, items), [items, trackingState]);
+  useWatchCheckDiscovery({
+    watchingList: safeTrackingState.watchingList,
+    lastSuccessfulScanAt: safeTrackingState.watchCheckLastSuccessfulScanAt,
+    initializedMediaIds: safeTrackingState.watchCheckInitializedMediaIds,
+    setTrackingState,
+  });
   const followedItems = useMemo(
     () => getSortedWatchingItems(safeTrackingState.watchingList),
     [safeTrackingState.watchingList],
+  );
+  const snoozedWatchingMediaIds = new Set(
+    Object.values(safeTrackingState.watchChecks)
+      .filter((check) => typeof check.snoozedUntil === "number" && check.snoozedUntil > Math.floor(Date.now() / 1000))
+      .map((check) => String(check.mediaId)),
   );
   const followedAnimeIds = useMemo(
     () => Object.values(safeTrackingState.following).map((item) => item.mediaId),
@@ -61,12 +97,72 @@ function App() {
   const reminderIds = useMemo(() => new Set(Object.keys(safeTrackingState.releaseReminders)), [
     safeTrackingState.releaseReminders,
   ]);
+  const actionableWatchCheckGroups = useMemo(
+    () =>
+      getActionableWatchCheckGroups(
+        safeTrackingState.watchChecks,
+        safeTrackingState.watchedEpisodes,
+        safeTrackingState.watchingList,
+        watchCheckNow,
+      ),
+    [safeTrackingState.watchChecks, safeTrackingState.watchedEpisodes, safeTrackingState.watchingList, watchCheckNow],
+  );
+  const hasActionableWatchChecks = actionableWatchCheckGroups.length > 0;
+
+  useEffect(() => {
+    let ringTimeout: number | undefined;
+
+    if (hasActionableWatchChecks && !hadActionableWatchChecks.current) {
+      setWatchCheckBellAnimationKey((current) => current + 1);
+      setIsBellRingActive(true);
+      ringTimeout = window.setTimeout(() => setIsBellRingActive(false), 720);
+    } else if (!hasActionableWatchChecks) {
+      setIsBellRingActive(false);
+    }
+
+    hadActionableWatchChecks.current = hasActionableWatchChecks;
+
+    return () => {
+      if (ringTimeout !== undefined) {
+        window.clearTimeout(ringTimeout);
+      }
+    };
+  }, [hasActionableWatchChecks]);
+
+  useEffect(() => {
+    if (!hasActionableWatchChecks) {
+      setIsWatchCheckPanelOpen(false);
+    }
+  }, [hasActionableWatchChecks]);
+
+  const isBellInteracting = isBellHovered || isBellPressed || isBellFocused;
+  const bellIsAwake = hasActionableWatchChecks;
+  const bellIsWaking = !bellIsAwake && isBellInteracting;
+  const bellImageSrc = bellIsAwake
+    ? "/watch-check-bell.png"
+    : bellIsWaking
+      ? "/watch-check-bell-waking.png"
+      : "/watch-check-bell-sleeping.png";
+  const bellAnimationClass = bellIsAwake
+    ? isBellRingActive
+      ? "watch-check-bell-ring"
+      : "watch-check-bell-idle"
+    : bellIsWaking
+      ? ""
+      : "watch-check-bell-idle";
+  const bellAriaLabel = hasActionableWatchChecks
+    ? `Open watch reminders, ${actionableWatchCheckGroups.length} pending`
+    : "Open watch reminders";
+  const logoSrc = actionableWatchCheckGroups.length >= 6
+    ? "/simple-anime-schedule-logo-6plus.png"
+    : "/simple-anime-schedule-logo.png";
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setTrackingState((current) => {
         const safeCurrent = withTrackingDefaults(current);
         const nowUnix = Math.floor(Date.now() / 1000);
+        setWatchCheckNow(nowUnix);
         let changed = false;
         const nextReminders = { ...safeCurrent.releaseReminders };
 
@@ -122,10 +218,14 @@ function App() {
       const nextFollowing = { ...safeCurrent.following };
       const nextWatchingList = { ...safeCurrent.watchingList };
       const nextCompletedShows = { ...safeCurrent.completedShows };
+      const nextWatchCheckInitializedMediaIds = { ...safeCurrent.watchCheckInitializedMediaIds };
+      let nextWatchChecks = safeCurrent.watchChecks;
 
       if (isFollowed) {
         delete nextFollowing[followKey];
         delete nextWatchingList[followKey];
+        delete nextWatchCheckInitializedMediaIds[String(item.animeId)];
+        nextWatchChecks = removeWatchChecksForMediaId(nextWatchChecks, item.animeId);
       } else {
         const trackedItem: WatchingItem = {
           id: followKey,
@@ -143,6 +243,8 @@ function App() {
         following: nextFollowing,
         watchingList: nextWatchingList,
         completedShows: nextCompletedShows,
+        watchChecks: nextWatchChecks,
+        watchCheckInitializedMediaIds: nextWatchCheckInitializedMediaIds,
         followedAnimeIds: Object.values(nextFollowing).map((followedItem) => followedItem.mediaId),
       };
     });
@@ -154,11 +256,21 @@ function App() {
     setTrackingState((current) => {
       const safeCurrent = withTrackingDefaults(current, items);
       const nextWatchingList = { ...safeCurrent.watchingList };
+      const removedItem = nextWatchingList[id];
       delete nextWatchingList[id];
+      const nextWatchCheckInitializedMediaIds = { ...safeCurrent.watchCheckInitializedMediaIds };
+      if (removedItem) {
+        delete nextWatchCheckInitializedMediaIds[String(removedItem.mediaId)];
+      }
+      const nextWatchChecks = removedItem
+        ? removeWatchChecksForMediaId(safeCurrent.watchChecks, removedItem.mediaId)
+        : safeCurrent.watchChecks;
 
       return {
         ...safeCurrent,
         watchingList: nextWatchingList,
+        watchChecks: nextWatchChecks,
+        watchCheckInitializedMediaIds: nextWatchCheckInitializedMediaIds,
       };
     });
 
@@ -171,9 +283,12 @@ function App() {
       const nextWatchingList = { ...safeCurrent.watchingList };
       const nextFollowing = { ...safeCurrent.following };
       const nextCompletedShows = { ...safeCurrent.completedShows };
+      const nextWatchCheckInitializedMediaIds = { ...safeCurrent.watchCheckInitializedMediaIds };
+      const nextWatchChecks = removeWatchChecksForMediaId(safeCurrent.watchChecks, item.mediaId);
 
       delete nextWatchingList[item.id];
       delete nextFollowing[item.id];
+      delete nextWatchCheckInitializedMediaIds[String(item.mediaId)];
       nextCompletedShows[item.id] = {
         ...item,
         completedAt: new Date().toISOString(),
@@ -184,6 +299,8 @@ function App() {
         following: nextFollowing,
         watchingList: nextWatchingList,
         completedShows: nextCompletedShows,
+        watchChecks: nextWatchChecks,
+        watchCheckInitializedMediaIds: nextWatchCheckInitializedMediaIds,
         followedAnimeIds: Object.values(nextFollowing).map((followedItem) => followedItem.mediaId),
       };
     });
@@ -204,6 +321,48 @@ function App() {
         },
       };
     });
+  }
+
+  function handleMarkWatchCheckGroupWatched(group: ActionableWatchCheckGroup) {
+    const nowUnix = Math.floor(Date.now() / 1000);
+
+    setTrackingState((current) => {
+      const safeCurrent = withTrackingDefaults(current);
+      const watchedEpisodes = { ...safeCurrent.watchedEpisodes };
+
+      for (const check of group.checks) {
+        if (isWatchCheckActionable(check, safeCurrent.watchedEpisodes, nowUnix)) {
+          watchedEpisodes[episodeKey(check.mediaId, check.episode)] = true;
+        }
+      }
+
+      return { ...safeCurrent, watchedEpisodes };
+    });
+
+    setWatchCheckNow(nowUnix);
+  }
+
+  function handleSnoozeWatchCheckGroup(group: ActionableWatchCheckGroup, days: number) {
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const snoozedUntil = nowUnix + Math.min(30, Math.max(1, days)) * 24 * 60 * 60;
+    const groupCheckIds = new Set(group.checks.map((check) => check.id));
+
+    setTrackingState((current) => {
+      const safeCurrent = withTrackingDefaults(current);
+      const watchChecks = Object.fromEntries(
+        Object.entries(safeCurrent.watchChecks).map(([key, check]) => {
+          if (groupCheckIds.has(check.id) && isWatchCheckActionable(check, safeCurrent.watchedEpisodes, nowUnix)) {
+            return [key, { ...check, snoozedUntil }];
+          }
+
+          return [key, check];
+        }),
+      );
+
+      return { ...safeCurrent, watchChecks };
+    });
+
+    setWatchCheckNow(nowUnix);
   }
 
   async function handleToggleReleaseReminder(item: AiringItem) {
@@ -286,7 +445,14 @@ function App() {
   }
 
   function handleClearWatchingList() {
-    setTrackingState((current) => ({ ...withTrackingDefaults(current, items), watchingList: {} }));
+    setTrackingState((current) => ({
+      ...withTrackingDefaults(current, items),
+      following: {},
+      followedAnimeIds: [],
+      watchingList: {},
+      watchChecks: {},
+      watchCheckInitializedMediaIds: {},
+    }));
     setSelectedWatchingId(null);
   }
 
@@ -310,9 +476,9 @@ function App() {
       <div className="mx-auto flex min-h-screen w-full justify-center px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <div className="flex w-full max-w-[360px] flex-col gap-4 lg:w-fit lg:max-w-none lg:flex-row lg:items-start">
           <div className="relative mx-auto flex w-full max-w-[360px] shrink-0 flex-col lg:mx-0 lg:w-[360px]">
-            <header className="relative z-40 mb-2 bg-night-950 pb-1">
-              <div className="flex items-end justify-between gap-3">
-                <div className="min-w-0 flex-1">
+            <header className="relative z-50 mb-2 bg-night-950 pb-1">
+              <div className="relative z-50 flex items-end justify-between gap-0">
+                <div className="w-[13.5rem] shrink-0 max-[360px]:w-[12rem] max-[340px]:w-[11rem]">
                   <button
                     type="button"
                     onClick={goToToday}
@@ -320,12 +486,97 @@ function App() {
                     aria-label="Simple Anime Schedule - return to today"
                   >
                     <img
-                      src="/simple-anime-schedule-logo.png"
+                      src={logoSrc}
                       alt="Simple Anime Schedule"
                       className="h-auto w-full max-w-[13.5rem] object-contain sm:max-w-[16rem] lg:max-w-[18rem]"
                     />
                   </button>
                 </div>
+                <div
+                  ref={bellAnchorRef}
+                  className="absolute left-[calc(13.5rem+1rem)] top-1/2 z-10 h-11 w-11 -translate-x-1/2 -translate-y-1/2 max-[360px]:left-[calc(12rem+1.75rem)] max-[360px]:h-8 max-[360px]:w-8 max-[340px]:left-[calc(11rem+2.25rem)] max-[340px]:h-7 max-[340px]:w-7"
+                >
+                  <button
+                    ref={bellButtonRef}
+                    type="button"
+                    aria-label={bellAriaLabel}
+                    aria-expanded={isWatchCheckPanelOpen}
+                    aria-controls="watch-check-panel"
+                    onClick={() => {
+                      if (actionableWatchCheckGroups.length > 0) {
+                        setIsWatchCheckPanelOpen((isOpen) => !isOpen);
+                      }
+                    }}
+                    onPointerEnter={(event) => {
+                      if (event.pointerType !== "touch") {
+                        setIsBellHovered(true);
+                      }
+                    }}
+                    onPointerLeave={() => {
+                      bellFocusFromPointer.current = false;
+                      setIsBellHovered(false);
+                      setIsBellPressed(false);
+                    }}
+                    onPointerDown={() => {
+                      bellFocusFromPointer.current = true;
+                      setIsBellFocused(false);
+                      setIsBellPressed(true);
+                    }}
+                    onPointerUp={() => {
+                      bellFocusFromPointer.current = false;
+                      setIsBellPressed(false);
+                    }}
+                    onPointerCancel={() => {
+                      bellFocusFromPointer.current = false;
+                      setIsBellPressed(false);
+                    }}
+                    onFocus={() => setIsBellFocused(!bellFocusFromPointer.current)}
+                    onBlur={() => setIsBellFocused(false)}
+                    className="relative h-full w-full rounded bg-transparent p-0 shadow-none transition focus-visible:bg-transparent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-300/70 focus-visible:ring-offset-1 focus-visible:ring-offset-night-950"
+                  >
+                    <span
+                      key={watchCheckBellAnimationKey}
+                      className={`pointer-events-none inline-flex h-full w-full ${bellAnimationClass}`}
+                    >
+                      <img
+                        src={bellImageSrc}
+                        alt=""
+                        aria-hidden="true"
+                        className={`pointer-events-none h-full w-full object-contain ${
+                          bellIsWaking ? "watch-check-bell-waking-scale" : ""
+                        }`}
+                      />
+                    </span>
+                    {actionableWatchCheckGroups.length >= 6 ? (
+                      <>
+                        <span className="watch-check-bell-reflection pointer-events-none absolute left-0 top-1/3 z-10 h-5 w-2 rounded-full max-[360px]:h-4 max-[360px]:w-1.5 max-[340px]:h-3.5 max-[340px]:w-1" />
+                        <span className="watch-check-bell-reflection pointer-events-none absolute right-0 top-1/3 z-10 h-5 w-2 rounded-full max-[360px]:h-4 max-[360px]:w-1.5 max-[340px]:h-3.5 max-[340px]:w-1" />
+                      </>
+                    ) : null}
+                    {actionableWatchCheckGroups.length >= 4 ? (
+                      <img
+                        src="/bell-anger-overlay.png"
+                        alt=""
+                        aria-hidden="true"
+                        draggable={false}
+                        className={`pointer-events-none absolute z-20 object-contain ${
+                          actionableWatchCheckGroups.length >= 6
+                            ? "left-[-2px] top-[3px] h-[22px] w-[22px] max-[360px]:left-[-1px] max-[360px]:top-[3px] max-[360px]:h-[19px] max-[360px]:w-[19px] max-[340px]:h-[17px] max-[340px]:w-[17px]"
+                            : "left-0 top-[5px] h-4 w-4 max-[360px]:top-[4px] max-[360px]:h-3.5 max-[360px]:w-3.5 max-[340px]:top-[3px] max-[340px]:h-3 max-[340px]:w-3"
+                        }`}
+                      />
+                    ) : null}
+                    {hasActionableWatchChecks ? <PendingWatchBadge count={actionableWatchCheckGroups.length} /> : null}
+                  </button>
+                </div>
+                <WatchCheckPanel
+                  groups={actionableWatchCheckGroups}
+                  isOpen={isWatchCheckPanelOpen}
+                  anchorRef={bellAnchorRef}
+                  onClose={() => setIsWatchCheckPanelOpen(false)}
+                  onMarkWatched={handleMarkWatchCheckGroupWatched}
+                  onSnooze={handleSnoozeWatchCheckGroup}
+                />
                 <div className="flex w-28 shrink-0 flex-col items-end text-right">
                   <div className="mb-1 flex w-full flex-col items-end">
                     <div className="flex items-center justify-end gap-1 text-[0.58rem] font-semibold tracking-[0.12em] text-slate-400 sm:text-[0.62rem]">
@@ -403,6 +654,7 @@ function App() {
           <div className="mx-auto w-full max-w-[360px] shrink-0 lg:sticky lg:top-36 lg:mx-0 lg:mt-[8.25rem] lg:w-36">
             <FollowedList
               followedItems={followedItems}
+              snoozedMediaIds={snoozedWatchingMediaIds}
               selectedWatchingId={selectedWatchingId}
               onSelectWatchingItem={setSelectedWatchingId}
               onClearSelectedWatchingItem={() => setSelectedWatchingId(null)}
@@ -479,12 +731,26 @@ function withTrackingDefaults(value: UserTrackingState, loadedItems: AiringItem[
     });
   }
 
+  const watchChecks = normalizeWatchChecks(safeValue.watchChecks, loadedTitles, watchingList);
+  const watchCheckLastSuccessfulScanAt =
+    typeof safeValue.watchCheckLastSuccessfulScanAt === "number" &&
+    Number.isFinite(safeValue.watchCheckLastSuccessfulScanAt)
+      ? safeValue.watchCheckLastSuccessfulScanAt
+      : undefined;
+  const watchCheckInitializedMediaIds = normalizeWatchCheckInitializedMediaIds(
+    safeValue.watchCheckInitializedMediaIds,
+    watchingList,
+  );
+
   return {
     followedAnimeIds: Object.values(following).map((item) => item.mediaId),
     following,
     watchingList,
     completedShows,
     releaseReminders,
+    watchChecks,
+    ...(watchCheckLastSuccessfulScanAt === undefined ? {} : { watchCheckLastSuccessfulScanAt }),
+    watchCheckInitializedMediaIds,
     watchedEpisodes: normalizeWatchedEpisodes(safeValue.watchedEpisodes),
     airType: isAirType(safeValue.airType) ? safeValue.airType : "ALL",
   };
@@ -668,6 +934,95 @@ function normalizeReleaseReminders(value: unknown): Record<string, ReleaseRemind
       ];
     }),
   );
+}
+
+function normalizeWatchCheckInitializedMediaIds(
+  value: unknown,
+  watchingList: Record<string, WatchingItem>,
+): Record<string, boolean> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const watchingMediaIds = new Set(Object.values(watchingList).map((item) => String(item.mediaId)));
+  return Object.fromEntries(
+    Object.entries(value).filter(([mediaId, initialized]) => initialized === true && watchingMediaIds.has(mediaId)),
+  );
+}
+
+function normalizeWatchChecks(
+  value: unknown,
+  loadedTitles: Map<number | string, string>,
+  watchingList: Record<string, WatchingItem>,
+): Record<string, WatchCheck> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const normalized: Record<string, WatchCheck> = {};
+  const watchingMediaIds = new Set(Object.values(watchingList).map((item) => String(item.mediaId)));
+
+  for (const rawItem of Object.values(value)) {
+    if (!rawItem || typeof rawItem !== "object") {
+      continue;
+    }
+
+    const item = rawItem as Partial<WatchCheck>;
+
+    if (
+      item.provider !== "anilist" ||
+      !isValidMediaId(item.mediaId) ||
+      !watchingMediaIds.has(String(item.mediaId)) ||
+      typeof item.episode !== "number" ||
+      !Number.isFinite(item.episode) ||
+      !Number.isInteger(item.episode) ||
+      item.episode < 1 ||
+      typeof item.airingAt !== "number" ||
+      !Number.isFinite(item.airingAt) ||
+      !Number.isInteger(item.airingAt) ||
+      item.airingAt < 1
+    ) {
+      continue;
+    }
+
+    const storedTitle =
+      typeof item.displayTitle === "string" && isRenderableTitle(item.displayTitle) ? item.displayTitle.trim() : undefined;
+    const displayTitle = storedTitle ?? loadedTitles.get(item.mediaId);
+
+    if (!displayTitle) {
+      continue;
+    }
+
+    const id = watchCheckKey(item.mediaId, item.episode);
+
+    if (normalized[id]) {
+      continue;
+    }
+
+    const eligibleAt =
+      typeof item.eligibleAt === "number" && Number.isFinite(item.eligibleAt)
+        && Number.isInteger(item.eligibleAt)
+        && item.eligibleAt >= item.airingAt
+        ? item.eligibleAt
+        : watchCheckEligibilityTime(item.airingAt);
+    const snoozedUntil =
+      typeof item.snoozedUntil === "number" && Number.isFinite(item.snoozedUntil) && item.snoozedUntil >= 0
+        ? item.snoozedUntil
+        : undefined;
+
+    normalized[id] = {
+      id,
+      provider: "anilist",
+      mediaId: item.mediaId,
+      displayTitle,
+      episode: item.episode,
+      airingAt: item.airingAt,
+      eligibleAt,
+      ...(snoozedUntil === undefined ? {} : { snoozedUntil }),
+    };
+  }
+
+  return normalized;
 }
 
 function getSortedWatchingItems(watchingList: Record<string, WatchingItem>) {

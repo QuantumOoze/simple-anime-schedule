@@ -7,6 +7,19 @@ export type AiringItem = {
   episode: number;
   title: string;
   coverImage: string | null;
+  episodes: number | null;
+  nextAiringEpisode: {
+    episode: number;
+    airingAt: number;
+  } | null;
+};
+
+export type MediaAiringMetadata = {
+  episodes: number | null;
+  nextAiringEpisode: {
+    episode: number;
+    airingAt: number;
+  } | null;
 };
 
 export type FollowedAnime = {

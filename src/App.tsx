@@ -10,6 +10,7 @@ import { WatchCheckPanel } from "./components/WatchCheckPanel";
 import { useAiringSchedule } from "./hooks/useAiringSchedule";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useWatchCheckDiscovery } from "./hooks/useWatchCheckDiscovery";
+import { useWatchingMediaMetadata } from "./hooks/useWatchingMediaMetadata";
 import type {
   AiringItem,
   AirType,
@@ -81,6 +82,7 @@ function App() {
     () => getSortedWatchingItems(safeTrackingState.watchingList),
     [safeTrackingState.watchingList],
   );
+  const watchingMediaMetadata = useWatchingMediaMetadata(followedItems);
   const snoozedWatchingMediaIds = new Set(
     Object.values(safeTrackingState.watchChecks)
       .filter((check) => typeof check.snoozedUntil === "number" && check.snoozedUntil > Math.floor(Date.now() / 1000))
@@ -654,6 +656,7 @@ function App() {
           <div className="mx-auto w-full max-w-[360px] shrink-0 lg:sticky lg:top-36 lg:mx-0 lg:mt-[8.25rem] lg:w-36">
             <FollowedList
               followedItems={followedItems}
+              mediaMetadata={watchingMediaMetadata}
               snoozedMediaIds={snoozedWatchingMediaIds}
               selectedWatchingId={selectedWatchingId}
               onSelectWatchingItem={setSelectedWatchingId}

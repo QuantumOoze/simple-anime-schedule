@@ -1,10 +1,11 @@
 import { Check, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import type { WatchingItem } from "../types";
+import type { MediaAiringMetadata, WatchingItem } from "../types";
 import { TruncatedTitle } from "./TruncatedTitle";
 
 type FollowedListProps = {
   followedItems: WatchingItem[];
+  mediaMetadata: Record<string, MediaAiringMetadata>;
   snoozedMediaIds: ReadonlySet<string>;
   selectedWatchingId: string | null;
   onSelectWatchingItem: (id: string) => void;
@@ -15,6 +16,7 @@ type FollowedListProps = {
 
 export function FollowedList({
   followedItems,
+  mediaMetadata,
   snoozedMediaIds,
   selectedWatchingId,
   onSelectWatchingItem,
@@ -83,9 +85,15 @@ export function FollowedList({
       ) : null}
       <h2 className="mb-2 font-bold uppercase tracking-[0.14em] text-slate-500">Watching</h2>
       <ul className="space-y-1">
-        {followedItems.map((item) => (
-          <li key={item.id} className="flex max-w-full items-center gap-1">
-            <span className="flex min-w-0 flex-1 items-center gap-[3px]">
+        {followedItems.map((item) => {
+          const nextAiring = mediaMetadata[String(item.mediaId)]?.nextAiringEpisode;
+          const nextAiringLabel = nextAiring
+            ? `Next episode: EP ${nextAiring.episode} • ${formatLocalDate(nextAiring.airingAt)}`
+            : "Next episode: TBA";
+
+          return (
+            <li key={item.id} className="flex max-w-full items-center gap-1">
+              <span className="flex min-w-0 flex-1 items-center gap-[3px]">
               <button
                 type="button"
                 onClick={(event) => {
@@ -97,7 +105,8 @@ export function FollowedList({
                     ? "text-xs text-signal-cyan"
                     : "text-[0.68rem] text-signal-cyan/80 hover:text-signal-cyan"
                 }`}
-                title={item.displayTitle}
+                title={nextAiringLabel}
+                aria-label={`${item.displayTitle}. ${nextAiringLabel}`}
               >
                 <TruncatedTitle text={item.displayTitle} focusable={false} />
               </button>
@@ -110,23 +119,31 @@ export function FollowedList({
                   className="pointer-events-none h-[15px] w-auto shrink-0 object-contain max-[360px]:h-[14px] max-[340px]:h-[13px]"
                 />
               ) : null}
-            </span>
-            {selectedWatchingId === item.id ? (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onRemoveWatchingItem(item.id);
-                }}
-                className="grid h-5 w-5 shrink-0 place-items-center rounded text-red-300/35 transition hover:bg-red-500/10 hover:text-red-200/90 focus-visible:bg-red-500/10 focus-visible:text-red-200/90 focus-visible:outline-none"
-                aria-label={`Remove ${item.displayTitle} from watching list`}
-              >
-                <X size={12} strokeWidth={2.5} />
-              </button>
-            ) : null}
-          </li>
-        ))}
+              </span>
+              {selectedWatchingId === item.id ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRemoveWatchingItem(item.id);
+                  }}
+                  className="grid h-5 w-5 shrink-0 place-items-center rounded text-red-300/35 transition hover:bg-red-500/10 hover:text-red-200/90 focus-visible:bg-red-500/10 focus-visible:text-red-200/90 focus-visible:outline-none"
+                  aria-label={`Remove ${item.displayTitle} from watching list`}
+                >
+                  <X size={12} strokeWidth={2.5} />
+                </button>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </aside>
   );
+}
+
+function formatLocalDate(airingAt: number) {
+  return new Date(airingAt * 1000).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
 }

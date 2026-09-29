@@ -124,7 +124,17 @@ export function ScheduleRow({
         aria-label={`${isFollowed ? "Unfollow" : "Follow"} ${item.title}`}
         aria-pressed={isFollowed}
       >
-        EP {item.episode}
+        {typeof item.episodes === "number" && item.episodes > 0 ? (
+          <span className="inline-flex items-start gap-1 leading-none">
+            <span>EP</span>
+            <span className="inline-flex flex-col items-center tabular-nums">
+              <span>{item.episode}</span>
+              <span className="mt-0.5 text-[0.68rem] font-semibold">{item.episodes}</span>
+            </span>
+          </span>
+        ) : (
+          <span>EP {item.episode}</span>
+        )}
       </button>
     </li>
   );

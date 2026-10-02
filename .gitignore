@@ -5,3 +5,6 @@ dist/
 .npm-home/
 .vite-dev*.log
 *.tsbuildinfo
+.env
+.env.*
+!.env.example

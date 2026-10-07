@@ -8,4 +8,4 @@
 5. Generate VAPID credentials with a trusted `web-push` key-generation command and configure `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` in the Vercel environment settings. Keep the private key server-side.
 6. Redeploy so the API routes and once-per-minute cron configuration are active.
 
-The backend now claims due reminders and sends server-side Web Push notifications. Phase C must still add the service-worker `push` handler and notification display before end-to-end browser notifications work. Frontend reminder synchronization remains intentionally deferred.
+The backend now claims due reminders and sends server-side Web Push notifications. The service worker now validates release payloads, displays OS notifications, and focuses or opens the app when a notification is clicked. Client Push subscription and reminder synchronization remain intentionally deferred, so end-to-end delivery from the existing reminder UI is not active yet.

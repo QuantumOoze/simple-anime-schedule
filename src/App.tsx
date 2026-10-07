@@ -11,6 +11,12 @@ import { useAiringSchedule } from "./hooks/useAiringSchedule";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useWatchCheckDiscovery } from "./hooks/useWatchCheckDiscovery";
 import { useWatchingMediaMetadata } from "./hooks/useWatchingMediaMetadata";
+import {
+  reconcileReleaseReminders,
+  syncArmedReminder,
+  syncCancelledReminder,
+  syncClearedReminders,
+} from "./utils/releasePush";
 import type {
   AiringItem,
   AirType,
@@ -72,6 +78,8 @@ function App() {
   const airType = trackingState.airType ?? "ALL";
   const { items, isLoading, error } = useAiringSchedule(selectedDate, airType);
   const safeTrackingState = useMemo(() => withTrackingDefaults(trackingState, items), [items, trackingState]);
+  const releaseRemindersRef = useRef(safeTrackingState.releaseReminders);
+  releaseRemindersRef.current = safeTrackingState.releaseReminders;
   useWatchCheckDiscovery({
     watchingList: safeTrackingState.watchingList,
     lastSuccessfulScanAt: safeTrackingState.watchCheckLastSuccessfulScanAt,
@@ -110,6 +118,16 @@ function App() {
     [safeTrackingState.watchChecks, safeTrackingState.watchedEpisodes, safeTrackingState.watchingList, watchCheckNow],
   );
   const hasActionableWatchChecks = actionableWatchCheckGroups.length > 0;
+
+  useEffect(() => {
+    const reconcile = () => {
+      void reconcileReleaseReminders(Object.values(releaseRemindersRef.current));
+    };
+
+    reconcile();
+    window.addEventListener("online", reconcile);
+    return () => window.removeEventListener("online", reconcile);
+  }, []);
 
   useEffect(() => {
     let ringTimeout: number | undefined;
@@ -373,6 +391,17 @@ function App() {
     }
 
     const reminderId = getReminderKey(item);
+    const existingReminder = safeTrackingState.releaseReminders[reminderId];
+    const nextReminder: ReleaseReminder = {
+      id: reminderId,
+      provider: "anilist",
+      mediaId: item.animeId,
+      episode: item.episode,
+      displayTitle: item.title,
+      airingAt: item.airingAt,
+      localTime: formatScheduleTime(item.airingAt),
+      createdAt: new Date().toISOString(),
+    };
 
     setTrackingState((current) => {
       const safeCurrent = withTrackingDefaults(current);
@@ -381,24 +410,16 @@ function App() {
       if (nextReminders[reminderId]) {
         delete nextReminders[reminderId];
       } else {
-        nextReminders[reminderId] = {
-          id: reminderId,
-          provider: "anilist",
-          mediaId: item.animeId,
-          episode: item.episode,
-          displayTitle: item.title,
-          airingAt: item.airingAt,
-          localTime: formatScheduleTime(item.airingAt),
-          createdAt: new Date().toISOString(),
-        };
+        nextReminders[reminderId] = nextReminder;
       }
 
       return { ...safeCurrent, releaseReminders: nextReminders };
     });
 
-    if ("Notification" in window && window.Notification.permission === "default" && shouldRequestNotificationPermission()) {
-      window.localStorage.setItem(NOTIFICATION_PERMISSION_PROMPT_KEY, "true");
-      await window.Notification.requestPermission().catch(() => "default");
+    if (existingReminder) {
+      void syncCancelledReminder(reminderId);
+    } else {
+      void syncArmedReminder(nextReminder);
     }
   }
 
@@ -444,6 +465,7 @@ function App() {
 
   function handleClearReminders() {
     setTrackingState((current) => ({ ...withTrackingDefaults(current, items), releaseReminders: {} }));
+    void syncClearedReminders();
   }
 
   function handleClearWatchingList() {
@@ -470,6 +492,7 @@ function App() {
     setTrackingState(DEFAULT_TRACKING_STATE);
     setSelectedWatchingId(null);
     window.localStorage.removeItem(NOTIFICATION_PERMISSION_PROMPT_KEY);
+    void syncClearedReminders();
     setImportStatus("Reset all app data.");
   }
 
@@ -1052,14 +1075,6 @@ function isValidMediaId(value: unknown): value is number | string {
 
 function getReminderKey(item: AiringItem) {
   return `anilist:${item.animeId}:${item.episode}:${item.airingAt}`;
-}
-
-function shouldRequestNotificationPermission() {
-  try {
-    return window.localStorage.getItem(NOTIFICATION_PERMISSION_PROMPT_KEY) !== "true";
-  } catch {
-    return true;
-  }
 }
 
 function safeParseJson(value: string): unknown {

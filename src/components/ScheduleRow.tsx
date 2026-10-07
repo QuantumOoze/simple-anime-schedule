@@ -1,4 +1,3 @@
-import { Eye } from "lucide-react";
 import type { AiringItem } from "../types";
 import { formatScheduleTime } from "../utils/date";
 import { TruncatedTitle } from "./TruncatedTitle";
@@ -86,13 +85,20 @@ export function ScheduleRow({
           <button
             type="button"
             onClick={() => onToggleWatched(item.animeId, item.episode)}
-            className={`grid h-7 w-7 shrink-0 place-items-center rounded transition hover:bg-white/15 focus-visible:bg-white/15 focus-visible:outline-none ${
-              isWatched ? "text-white opacity-100" : "text-white/70 opacity-90"
-            }`}
+            className="group grid h-7 w-7 shrink-0 place-items-center rounded transition hover:bg-white/15 focus-visible:bg-white/15 focus-visible:outline-none"
             aria-label={`${isWatched ? "Mark unwatched" : "Mark watched"}: ${item.title} episode ${item.episode}`}
             aria-pressed={isWatched}
           >
-            <Eye size={16} strokeWidth={2.2} />
+            <img
+              src={isWatched ? "/yhwach-watched-eye.png" : "/default-unwatched-eye.png"}
+              alt=""
+              aria-hidden="true"
+              className={`h-7 w-7 object-contain transition ${
+                isWatched
+                  ? "origin-center scale-y-[1.32] opacity-100"
+                  : "opacity-[0.62] grayscale-[0.72] saturate-[0.28] brightness-[0.82] group-hover:opacity-90 group-hover:grayscale-[0.25] group-hover:saturate-[0.65] group-hover:brightness-100 group-focus-visible:opacity-90 group-focus-visible:grayscale-[0.25] group-focus-visible:saturate-[0.65] group-focus-visible:brightness-100"
+              }`}
+            />
           </button>
         </div>
       ) : (
@@ -104,13 +110,20 @@ export function ScheduleRow({
           <button
             type="button"
             onClick={() => onToggleWatched(item.animeId, item.episode)}
-            className={`relative z-10 grid h-8 w-8 shrink-0 place-items-center justify-self-center rounded-md transition hover:bg-white/[0.06] ${
-              isWatched ? "text-signal-cyan opacity-95" : "text-slate-300 opacity-30"
-            }`}
+            className="group relative z-10 grid h-8 w-8 shrink-0 place-items-center justify-self-center rounded-md transition hover:bg-white/[0.06]"
             aria-label={`${isWatched ? "Mark unwatched" : "Mark watched"}: ${item.title} episode ${item.episode}`}
             aria-pressed={isWatched}
           >
-            <Eye size={17} strokeWidth={2.2} />
+            <img
+              src={isWatched ? "/yhwach-watched-eye.png" : "/default-unwatched-eye.png"}
+              alt=""
+              aria-hidden="true"
+              className={`h-8 w-8 object-contain transition ${
+                isWatched
+                  ? "origin-center scale-y-[1.32] opacity-100"
+                  : "opacity-[0.62] grayscale-[0.72] saturate-[0.28] brightness-[0.82] group-hover:opacity-90 group-hover:grayscale-[0.25] group-hover:saturate-[0.65] group-hover:brightness-100 group-focus-visible:opacity-90 group-focus-visible:grayscale-[0.25] group-focus-visible:saturate-[0.65] group-focus-visible:brightness-100"
+              }`}
+            />
           </button>
         </>
       )}

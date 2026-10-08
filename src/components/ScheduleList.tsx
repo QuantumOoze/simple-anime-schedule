@@ -47,7 +47,7 @@ export function ScheduleList({
   const currentItemId = isViewingToday ? getCurrentItemId(items) : null;
 
   return (
-    <ol className="relative z-0 overflow-hidden rounded-md border border-white/10 bg-night-850/70 shadow-board">
+    <ol className="relative z-0 overflow-visible rounded-md border border-white/10 bg-night-850/70 shadow-board">
       {items.map((item) => (
         <ScheduleRow
           key={item.id}

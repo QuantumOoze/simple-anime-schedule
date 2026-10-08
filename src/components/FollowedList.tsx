@@ -1,6 +1,7 @@
 import { Check, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MediaAiringMetadata, WatchingItem } from "../types";
+import { AnimeFlameTooltip } from "./AnimeFlameTooltip";
 import { TruncatedTitle } from "./TruncatedTitle";
 
 type FollowedListProps = {
@@ -25,6 +26,7 @@ export function FollowedList({
   onCompleteWatchingItem,
 }: FollowedListProps) {
   const containerRef = useRef<HTMLElement>(null);
+  const [openTooltipId, setOpenTooltipId] = useState<string | null>(null);
   const selectedItem = followedItems.find((item) => item.id === selectedWatchingId);
 
   useEffect(() => {
@@ -94,22 +96,44 @@ export function FollowedList({
           return (
             <li key={item.id} className="flex max-w-full items-center gap-1">
               <span className="flex min-w-0 flex-1 items-center gap-[3px]">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectWatchingItem(item.id);
-                }}
-                className={`min-w-0 max-w-full flex-[0_1_auto] truncate text-left font-medium transition focus-visible:outline-none ${
-                  selectedWatchingId === item.id
-                    ? "text-xs text-signal-cyan"
-                    : "text-[0.68rem] text-signal-cyan/80 hover:text-signal-cyan"
-                }`}
-                title={nextAiringLabel}
-                aria-label={`${item.displayTitle}. ${nextAiringLabel}`}
+              <span
+                className="relative min-w-0 max-w-full flex-[0_1_auto]"
+                onMouseEnter={() => setOpenTooltipId(item.id)}
+                onMouseLeave={() => setOpenTooltipId(null)}
               >
-                <TruncatedTitle text={item.displayTitle} focusable={false} />
-              </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelectWatchingItem(item.id);
+                  }}
+                  onFocus={() => setOpenTooltipId(item.id)}
+                  onBlur={() => setOpenTooltipId(null)}
+                  aria-describedby={openTooltipId === item.id ? getWatchingTooltipId(item.id) : undefined}
+                  className={`min-w-0 max-w-full truncate text-left font-medium transition focus-visible:outline-none ${
+                    selectedWatchingId === item.id
+                      ? "text-xs text-signal-cyan"
+                      : "text-[0.68rem] text-signal-cyan/80 hover:text-signal-cyan"
+                  }`}
+                  aria-label={`${item.displayTitle}. ${nextAiringLabel}`}
+                >
+                  <TruncatedTitle text={item.displayTitle} focusable={false} showTooltip={false} />
+                </button>
+                <AnimeFlameTooltip
+                  id={getWatchingTooltipId(item.id)}
+                  open={openTooltipId === item.id}
+                  contentClassName="anime-flame-tooltip-meta"
+                >
+                  {nextAiring ? (
+                    <>
+                      <span>Next episode: EP {nextAiring.episode}</span>
+                      <span className="text-blue-200">{formatLocalDate(nextAiring.airingAt)}</span>
+                    </>
+                  ) : (
+                    nextAiringLabel
+                  )}
+                </AnimeFlameTooltip>
+              </span>
               {snoozedMediaIds.has(String(item.mediaId)) ? (
                 <img
                   src="/snoozed-zzz-cropped.png"
@@ -146,4 +170,8 @@ function formatLocalDate(airingAt: number) {
     day: "numeric",
     month: "short",
   });
+}
+
+function getWatchingTooltipId(itemId: string) {
+  return `watching-next-tooltip-${itemId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }

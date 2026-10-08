@@ -1,22 +1,25 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { AnimeFlameTooltip } from "./AnimeFlameTooltip";
 
 type TruncatedTitleProps = {
   text: string;
   className?: string;
   focusable?: boolean;
+  showTooltip?: boolean;
 };
 
-export function TruncatedTitle({ text, className = "", focusable = true }: TruncatedTitleProps) {
+export function TruncatedTitle({ text, className = "", focusable = true, showTooltip = true }: TruncatedTitleProps) {
   const textRef = useRef<HTMLSpanElement>(null);
-  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipId = useId();
+  const [showTooltipState, setShowTooltipState] = useState(false);
 
   function revealIfTruncated() {
     const element = textRef.current;
-    setShowTooltip(Boolean(element && element.scrollWidth > element.clientWidth));
+    setShowTooltipState(Boolean(element && element.scrollWidth > element.clientWidth));
   }
 
   function hideTooltip() {
-    setShowTooltip(false);
+    setShowTooltipState(false);
   }
 
   return (
@@ -27,16 +30,21 @@ export function TruncatedTitle({ text, className = "", focusable = true }: Trunc
       onFocus={revealIfTruncated}
       onBlur={hideTooltip}
       onTouchStart={revealIfTruncated}
+      onTouchEnd={hideTooltip}
+      onTouchCancel={hideTooltip}
+      aria-describedby={showTooltip && showTooltipState ? tooltipId : undefined}
       tabIndex={focusable ? 0 : -1}
     >
       <span ref={textRef} className="block min-w-0 truncate">
         {text}
       </span>
-      {showTooltip ? (
-        <span className="pointer-events-none absolute bottom-full left-0 z-20 mb-1 max-w-[min(18rem,80vw)] rounded border border-white/10 bg-night-900 px-2 py-1 text-[0.72rem] font-medium leading-snug text-slate-100 shadow-board">
-          {text}
-        </span>
-      ) : null}
+      <AnimeFlameTooltip
+        id={tooltipId}
+        open={showTooltip && showTooltipState}
+        contentClassName="anime-flame-tooltip-title"
+      >
+        {text}
+      </AnimeFlameTooltip>
     </span>
   );
 }
